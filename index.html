@@ -1,1 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
 
+/* ── TOKENS ──────────────────────────────── */
+:root {
+  --bg:     #191919;
+  --s1:     #222222;
+  --s2:     #2b2b2b;
+  --bd:     rgba(255,255,255,0.07);
+  --txt:    #f0f0f0;
+  --mut:    rgba(240,240,240,0.36);
+  --r:      14px;
+
+  --a:   #e8603a;  --ag: rgba(232,96,58,0.28);
+  --ab:  #4fa8c7;  --gb: rgba(79,168,199,0.28);
+  --al:  #4fad82;  --gl: rgba(79,173,130,0.28);
+
+  --cur:  #e8603a;
+  --curG: rgba(232,96,58,0.28);
+}
+body.lt {
+  --bg:  #ffffff;
+  --s1:  #f2f1ef;
+  --s2:  #e8e7e4;
+  --bd:  rgba(0,0,0,0.08);
+  --txt: #1a1a1a;
+  --mut: rgba(26,26,26,0.38);
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+/* ── BODY fills iframe, transparent edges ── */
+html, body {
+  width: 100%; height: 100%;
+  background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── WIDGET ──────────────────────────────── */
+.w {
+  /* fills viewport, stays square */
+  width:  100vmin;
+  height: 100vmin;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.35s;
+}
+
+/* subtle ambient glow when running */
+.w::before {
+  content:'';
+  position:absolute; inset:0;
+  background: radial-gradient(circle at 50% 52%, var(--curG) 0%, transparent 65%);
+  opacity:0; transition:opacity 0.8s; pointer-events:none; z-index:0;
+}
+.w.alive::before { opacity:1; }
+
+/* ── TOP ──────────────────────────────────── */
+.top {
+  width:100%;
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 3vmin 4vmin 0;
+  z-index:2; flex-shrink:0;
+}
+.phases { display:flex; gap:1vmin; }
+.ph {
+  padding: 0.8vmin 2.8vmin;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mut);
+  font-family:'Inter',sans-serif;
+  font-size: clamp(9px, 2.4vmin, 13px);
+  font-weight:500; letter-spacing:0.2px;
+  cursor:pointer; transition:all 0.22s;
+}
+.ph:hover { color:var(--txt); }
+.ph.on {
+  color:var(--cur);
+  border-color:var(--cur);
+  background:var(--curG);
+}
+.top-ico { display:flex; gap:1.5vmin; }
+.ico {
+  width: clamp(24px,6vmin,32px);
+  height: clamp(24px,6vmin,32px);
+  border-radius: 8px;
+  border:1px solid var(--bd);
+  background:var(--s1);
+  color:var(--mut);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  font-size: clamp(10px,2.5vmin,14px);
+  transition:all 0.2s;
+}
+.ico:hover { color:var(--txt); background:var(--s2); }
+.ico.on    { color:var(--cur); border-color:var(--cur); }
+
+/* ── RING AREA ───────────────────────────── */
+.ring-area {
+  flex:1; min-height:0;
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  width:100%; z-index:2;
+}
+.rsvg {
+  width: 75%; height:auto; max-height:100%;
+  aspect-ratio:1; overflow:visible;
+}
+.rt  { fill:none; stroke:var(--s2); stroke-width:4; }
+.rf  {
+  fill:none; stroke:var(--cur);
+  stroke-width:4; stroke-linecap:round;
+  transform-origin:center; transform:rotate(-90deg);
+  stroke-dasharray:1068.14; stroke-dashoffset:0;
+  transition:stroke 0.4s, stroke-dashoffset 1s linear;
+  filter:drop-shadow(0 0 4px var(--curG));
+}
+.rtip {
+  fill:var(--cur); transition:fill 0.4s, opacity 0.3s;
+  filter:drop-shadow(0 0 3px var(--curG));
+}
+
+/* center label */
+.ct {
+  position:absolute;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:1.5vmin;
+  pointer-events:none;
+}
+.time {
+  font-family:'Bebas Neue',sans-serif;
+  font-size: clamp(32px, 13.5vmin, 82px);
+  font-weight:400; letter-spacing:3px; line-height:1;
+  color:var(--txt); font-variant-numeric:tabular-nums;
+}
+.time.tick { animation:pulse .12s ease; }
+@keyframes pulse{ 50%{opacity:0.65} }
+
+.sdots { display:flex; gap:1.5vmin; align-items:center; }
+.sdot {
+  width:clamp(4px,1.2vmin,7px); height:clamp(4px,1.2vmin,7px);
+  border-radius:50%;
+  background:var(--s2); border:1px solid var(--bd);
+  transition:all .4s cubic-bezier(.34,1.56,.64,1);
+}
+.sdot.on {
+  background:var(--cur); border-color:var(--cur);
+  box-shadow:0 0 5px var(--curG); transform:scale(1.3);
+}
+
+/* ── CONTROLS ────────────────────────────── */
+.ctrls {
+  display:flex; align-items:center; justify-content:center;
+  gap:clamp(8px,3vmin,18px);
+  padding: 0 4vmin clamp(14px,4vmin,28px);
+  z-index:2; flex-shrink:0;
+}
+.cb {
+  width: clamp(36px,10vmin,52px);
+  height:clamp(36px,10vmin,52px);
+  border-radius: clamp(8px,2.5vmin,15px);
+  border:1px solid var(--bd); background:var(--s1);
+  color:var(--mut);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  font-size:clamp(13px,3.8vmin,20px);
+  transition:all 0.22s; position:relative; overflow:hidden;
+}
+.cb:hover { color:var(--txt); background:var(--s2); transform:scale(1.05); }
+.cb:active{ transform:scale(0.91); }
+
+.pb {
+  width: clamp(46px,13vmin,66px);
+  height:clamp(46px,13vmin,66px);
+  border-radius:clamp(12px,3.2vmin,20px);
+  border:none; background:var(--cur); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  font-size:clamp(16px,4.5vmin,24px);
+  box-shadow:0 8px 24px var(--curG);
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  position:relative; overflow:hidden;
+}
+.pb:hover  { transform:scale(1.09); box-shadow:0 14px 36px var(--curG); }
+.pb:active { transform:scale(0.9); }
+
+/* ripple */
+.rip {
+  position:absolute; border-radius:50%;
+  background:rgba(255,255,255,0.2); transform:scale(0);
+  animation:rip .5s linear forwards; pointer-events:none;
+}
+@keyframes rip{ to{transform:scale(6);opacity:0} }
+
+/* ── COMPACT MODE (≤ 200px) ──────────────── */
+/* When the iframe is very small, show a minimal horizontal strip */
+@media (max-width: 200px), (max-height: 200px) {
+  .top   { display:none; }
+  .ring-area { flex:1; }
+  .rsvg  { width:60%; }
+  .time  { font-size:clamp(20px,11vmin,48px); letter-spacing:2px; }
+  .sdots { display:none; }
+  .ctrls { gap:2vmin; padding-bottom:3vmin; }
+}
+
+/* ── SETTINGS ────────────────────────────── */
+.sp {
+  position:absolute; inset:0;
+  background:var(--bg);
+  z-index:20; padding:4vmin;
+  overflow-y:auto; scrollbar-width:none;
+  transform:translateY(105%);
+  transition:transform 0.36s cubic-bezier(.4,0,.2,1);
+}
+.sp::-webkit-scrollbar{display:none}
+.sp.open{ transform:translateY(0); }
+
+.sp-top {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:4vmin;
+}
+.sp-title { font-size:clamp(11px,3vmin,15px); font-weight:500; color:var(--txt); }
+.sp-x {
+  width:clamp(22px,6vmin,30px); height:clamp(22px,6vmin,30px);
+  border-radius:7px; border:1px solid var(--bd); background:var(--s1);
+  color:var(--mut); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:clamp(10px,2.5vmin,13px); transition:all 0.2s;
+}
+.sp-x:hover{ color:var(--txt); }
+
+.sg { margin-bottom:4vmin; }
+.sg-lbl {
+  font-size:clamp(8px,2vmin,10px); font-weight:600;
+  letter-spacing:2px; text-transform:uppercase;
+  color:var(--mut); margin-bottom:2.5vmin;
+}
+.sr {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:2vmin;
+}
+.sr-l { font-size:clamp(10px,2.5vmin,13px); color:var(--mut); }
+
+.nc { display:flex; align-items:center; gap:1.5vmin; }
+.nb {
+  width:clamp(22px,5.5vmin,30px); height:clamp(22px,5.5vmin,30px);
+  border-radius:7px; border:1px solid var(--bd); background:var(--s1);
+  color:var(--mut); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:clamp(12px,3vmin,17px); line-height:1;
+  transition:all 0.18s; user-select:none;
+}
+.nb:hover{ color:var(--txt); background:var(--s2); }
+.nv {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(16px,4vmin,22px); color:var(--cur);
+  width:clamp(24px,5.5vmin,34px); text-align:center;
+}
+
+.tg {
+  width:clamp(32px,7vmin,42px); height:clamp(18px,4vmin,22px);
+  border-radius:11px; background:var(--s2); border:1px solid var(--bd);
+  position:relative; cursor:pointer; transition:background .3s; flex-shrink:0;
+}
+.tg.on{ background:var(--cur); border-color:transparent; }
+.tg::after{
+  content:''; position:absolute;
+  width:clamp(12px,3vmin,16px); height:clamp(12px,3vmin,16px);
+  border-radius:50%; background:#fff; top:2px; left:2px;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+.tg.on::after{ transform:translateX(clamp(14px,3vmin,20px)); }
+
+.sw-row{ display:flex; gap:1.8vmin; flex-wrap:wrap; }
+.sw {
+  width:clamp(18px,4.5vmin,26px); height:clamp(18px,4.5vmin,26px);
+  border-radius:50%; cursor:pointer;
+  border:2px solid transparent; transition:all 0.2s;
+}
+.sw:hover { transform:scale(1.2); }
+.sw.on    { border-color:rgba(255,255,255,0.8); transform:scale(1.15); }
+body.lt .sw.on { border-color:rgba(0,0,0,0.6); }
+
+hr { border:none; border-top:1px solid var(--bd); margin:0 0 4vmin; }
+
+/* ── DONE ────────────────────────────────── */
+.done {
+  position:absolute; inset:0;
+  background:var(--bg); z-index:30;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:2vmin; opacity:0; pointer-events:none; transition:opacity .35s;
+}
+.done.show{ opacity:1; pointer-events:all; }
+.d-ico  { font-size:clamp(32px,9vmin,54px); animation:epop .45s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes epop{ from{transform:scale(0) rotate(-15deg)} to{transform:scale(1)} }
+.d-h {
+  font-size:clamp(14px,4.5vmin,22px); font-weight:300;
+  color:var(--cur); letter-spacing:0.5px;
+}
+.d-p {
+  font-size:clamp(10px,2.5vmin,13px); color:var(--mut);
+  text-align:center; line-height:1.7;
+  max-width:60vmin;
+}
+.d-btn {
+  margin-top:1vmin;
+  padding:clamp(8px,2vmin,12px) clamp(20px,5vmin,32px);
+  border-radius:clamp(9px,2.5vmin,14px); border:none;
+  background:var(--cur); color:#fff;
+  font-family:'Inter',sans-serif;
+  font-size:clamp(10px,2.5vmin,13px); font-weight:500;
+  cursor:pointer; box-shadow:0 6px 22px var(--curG); transition:all .22s;
+}
+.d-btn:hover{ transform:scale(1.06); }
+
+.cfl{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.cf {
+  position:absolute; opacity:0; border-radius:2px;
+  animation:cff var(--d) var(--dl) ease-in forwards;
+}
+@keyframes cff{
+  0%  { opacity:1; transform:translateY(0) rotate(0); }
+  100%{ opacity:0; transform:translateY(110vmin) rotate(calc(var(--sp)*1deg)); }
+}
+
+</style>
+</head>
+<body>
+
+<div class="w" id="W">
+
+  <!-- TOP -->
+  <div class="top">
+    <div class="phases">
+      <button class="ph on" id="ph-focus" onclick="setPhase('focus')">Trabajo</button>
+      <button class="ph"    id="ph-break" onclick="setPhase('break')">Pausa</button>
+      <button class="ph"    id="ph-long"  onclick="setPhase('long')">Largo</button>
+    </div>
+    <div class="top-ico">
+      <div class="ico" id="iP" title="Ventana flotante [P]" onclick="doPopout()">⤢</div>
+      <div class="ico" id="iC" title="Configuración [C]"   onclick="openCfg()">⚙</div>
+    </div>
+  </div>
+
+  <!-- RING -->
+  <div class="ring-area">
+    <svg class="rsvg" viewBox="0 0 440 440">
+      <circle class="rt" cx="220" cy="220" r="170"/>
+      <circle class="rf" id="arc" cx="220" cy="220" r="170"/>
+      <circle class="rtip" id="tip" cx="220" cy="50" r="6"/>
+    </svg>
+    <div class="ct">
+      <div class="time" id="disp">25:00</div>
+      <div class="sdots" id="dots"></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="ctrls">
+    <div class="cb" onclick="doReset(this)" title="[R]" style="font-size:clamp(14px,3.8vmin,20px)">↺</div>
+    <div class="pb" id="pbtn" onclick="doPlay(this)">▶</div>
+    <div class="cb" onclick="doSkip(this)"  title="[S]" style="font-size:clamp(11px,3vmin,16px)">⏭</div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="sp" id="SP">
+    <div class="sp-top">
+      <span class="sp-title">Configuración</span>
+      <div class="sp-x" onclick="closeCfg()">✕</div>
+    </div>
+
+    <div class="sg">
+      <div class="sg-lbl">Apariencia</div>
+      <div class="sr">
+        <span class="sr-l">Tema claro</span>
+        <div class="tg" id="tgTh" onclick="togTheme()"></div>
+      </div>
+    </div>
+    <hr>
+
+    <div class="sg">
+      <div class="sg-lbl">Duraciones — minutos</div>
+      <div class="sr">
+        <span class="sr-l">Trabajo</span>
+        <div class="nc">
+          <div class="nb" onclick="chD('focus',-1)">−</div>
+          <span class="nv" id="dF">25</span>
+          <div class="nb" onclick="chD('focus',1)">+</div>
+        </div>
+      </div>
+      <div class="sr">
+        <span class="sr-l">Pausa corta</span>
+        <div class="nc">
+          <div class="nb" onclick="chD('break',-1)">−</div>
+          <span class="nv" id="dB">5</span>
+          <div class="nb" onclick="chD('break',1)">+</div>
+        </div>
+      </div>
+      <div class="sr">
+        <span class="sr-l">Pausa larga</span>
+        <div class="nc">
+          <div class="nb" onclick="chD('long',-1)">−</div>
+          <span class="nv" id="dL">15</span>
+          <div class="nb" onclick="chD('long',1)">+</div>
+        </div>
+      </div>
+      <div class="sr">
+        <span class="sr-l">Ciclos hasta pausa larga</span>
+        <div class="nc">
+          <div class="nb" onclick="chD('slots',-1)">−</div>
+          <span class="nv" id="dS">4</span>
+          <div class="nb" onclick="chD('slots',1)">+</div>
+        </div>
+      </div>
+    </div>
+    <hr>
+
+    <div class="sg">
+      <div class="sg-lbl">Auto-inicio</div>
+      <div class="sr">
+        <span class="sr-l">Iniciar pausa automáticamente</span>
+        <div class="tg" id="tgB" onclick="togOpt('autoBreak')"></div>
+      </div>
+      <div class="sr">
+        <span class="sr-l">Iniciar trabajo automáticamente</span>
+        <div class="tg" id="tgF" onclick="togOpt('autoFocus')"></div>
+      </div>
+    </div>
+    <hr>
+
+    <div class="sg">
+      <div class="sg-lbl">Color de acento (trabajo)</div>
+      <div class="sw-row" id="swRow">
+        <div class="sw on" style="background:#e8603a" data-c="#e8603a" data-g="rgba(232,96,58,0.28)"   onclick="pickC(this)"></div>
+        <div class="sw"    style="background:#e04040" data-c="#e04040" data-g="rgba(224,64,64,0.28)"   onclick="pickC(this)"></div>
+        <div class="sw"    style="background:#c050b0" data-c="#c050b0" data-g="rgba(192,80,176,0.28)"  onclick="pickC(this)"></div>
+        <div class="sw"    style="background:#7a68e0" data-c="#7a68e0" data-g="rgba(122,104,224,0.28)" onclick="pickC(this)"></div>
+        <div class="sw"    style="background:#4878d0" data-c="#4878d0" data-g="rgba(72,120,208,0.28)"  onclick="pickC(this)"></div>
+        <div class="sw"    style="background:#4fa8c7" data-c="#4fa8c7" data-g="rgba(79,168,199,0.28)"  onclick="pickC(this)"></div>
+        <div class="sw"    style="background:#4fad82" data-c="#4fad82" data-g="rgba(79,173,130,0.28)"  onclick="pickC(this)"></div>
+        <div class="sw"    style="background:#b09530" data-c="#b09530" data-g="rgba(176,149,48,0.28)"  onclick="pickC(this)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DONE -->
+  <div class="done" id="DONE">
+    <div class="cfl" id="CFL"></div>
+    <div class="d-ico" id="dIco">✓</div>
+    <div class="d-h"  id="dH">Sesión completa</div>
+    <div class="d-p"  id="dP"></div>
+    <button class="d-btn" onclick="dismissDone()">Continuar →</button>
+  </div>
+
+</div>
+
+<script>
+const D = { focus:25, break:5, long:15, slots:4 };
+const O = { autoBreak:false, autoFocus:false };
+const CIRC = 2 * Math.PI * 170;
+
+const COLORS = {
+  focus: { a:'#e8603a', g:'rgba(232,96,58,0.28)'  },
+  break: { a:'#4fa8c7', g:'rgba(79,168,199,0.28)' },
+  long:  { a:'#4fad82', g:'rgba(79,173,130,0.28)' },
+};
+const META = {
+  focus: { ico:'✓', h:'Sesión completa',   p:'Tómate un descanso bien merecido.' },
+  break: { ico:'→', h:'Pausa terminada',   p:'De vuelta al trabajo.' },
+  long:  { ico:'✦', h:'Listo',             p:'Recargado. ¡Adelante!' },
+};
+
+let phase = 'focus', timeLeft, total;
+let running = false, ticker = null, sessions = 0;
+
+function setPhase(p, auto = false) {
+  if (running) stopTimer();
+  phase = p;
+  timeLeft = total = D[p] * 60;
+  const col = COLORS[p];
+  const W = document.getElementById('W');
+  W.style.setProperty('--cur',  col.a);
+  W.style.setProperty('--curG', col.g);
+  document.getElementById('arc').style.stroke = col.a;
+  document.getElementById('tip').style.fill   = col.a;
+  ['focus','break','long'].forEach(k =>
+    document.getElementById('ph-'+k).classList.toggle('on', k===p));
+  document.getElementById('pbtn').textContent = '▶';
+  refreshDisp(); refreshRing(); buildDots();
+  if (auto) {
+    if (p!=='focus' && O.autoBreak) startTimer();
+    if (p==='focus' && O.autoFocus) startTimer();
+  }
+}
+
+function doPlay(btn) { addRipple(btn); running ? stopTimer() : startTimer(); }
+function startTimer() {
+  running = true;
+  document.getElementById('pbtn').textContent = '⏸';
+  document.getElementById('W').classList.add('alive');
+  ticker = setInterval(()=>{ timeLeft--; refreshDisp(true); refreshRing(); if(timeLeft<=0) phaseDone(); }, 1000);
+}
+function stopTimer() {
+  running = false; clearInterval(ticker);
+  document.getElementById('pbtn').textContent = '▶';
+  document.getElementById('W').classList.remove('alive');
+}
+function doReset(btn) { addRipple(btn); stopTimer(); timeLeft=total=D[phase]*60; refreshDisp(); refreshRing(); }
+function doSkip(btn)  { addRipple(btn); stopTimer(); advance(true); }
+function phaseDone()  { stopTimer(); showDone(); }
+function advance(skip=false) {
+  if (phase==='focus') {
+    sessions++;
+    buildDots();
+    setPhase(sessions%D.slots===0 ? 'long' : 'break', !skip);
+  } else {
+    setPhase('focus', !skip);
+  }
+}
+
+function refreshDisp(tick=false) {
+  const el = document.getElementById('disp');
+  el.textContent = pad(Math.floor(timeLeft/60)) + ':' + pad(timeLeft%60);
+  document.title = el.textContent;
+  if (tick) { el.classList.remove('tick'); void el.offsetWidth; el.classList.add('tick'); }
+}
+function refreshRing() {
+  const pct = total>0 ? timeLeft/total : 1;
+  document.getElementById('arc').style.strokeDashoffset = CIRC*(1-pct);
+  const a  = -Math.PI/2 + (1-pct)*2*Math.PI;
+  document.getElementById('tip').setAttribute('cx', 220+170*Math.cos(a));
+  document.getElementById('tip').setAttribute('cy', 220+170*Math.sin(a));
+  document.getElementById('tip').style.opacity = (pct>0.008 && pct<0.997) ? '1' : '0';
+}
+function buildDots() {
+  const row = document.getElementById('dots'), n=Math.min(D.slots,8), done=sessions%D.slots;
+  row.innerHTML='';
+  for(let i=0;i<n;i++){const d=document.createElement('div');d.className='sdot'+(i<done?' on':'');row.appendChild(d);}
+}
+
+/* done overlay */
+function showDone() {
+  const m=META[phase];
+  document.getElementById('dIco').textContent=m.ico;
+  document.getElementById('dH').textContent=m.h;
+  document.getElementById('dP').textContent=m.p;
+  confetti();
+  document.getElementById('DONE').classList.add('show');
+}
+function dismissDone() { document.getElementById('DONE').classList.remove('show'); advance(); }
+function confetti() {
+  const L=document.getElementById('CFL'); L.innerHTML='';
+  const pal=['#e8603a','#fcd34d','#4fa8c7','#7a68e0','#4fad82'];
+  for(let i=0;i<44;i++){
+    const e=document.createElement('div'); e.className='cf';
+    const s=4+Math.random()*7;
+    e.style.cssText=`left:${Math.random()*100}%;top:-8px;width:${s}px;height:${s}px;`+
+      `background:${pal[i%pal.length]};border-radius:${Math.random()>.5?'50%':'2px'};`+
+      `--d:${1+Math.random()*.9}s;--dl:${Math.random()*.5}s;--sp:${260+Math.random()*500};`;
+    L.appendChild(e);
+  }
+}
+
+/* settings */
+function openCfg()  { document.getElementById('SP').classList.add('open');  document.getElementById('iC').classList.add('on'); }
+function closeCfg() {
+  document.getElementById('SP').classList.remove('open');
+  document.getElementById('iC').classList.remove('on');
+  if (!running) { timeLeft=total=D[phase]*60; refreshDisp(); refreshRing(); }
+  buildDots();
+}
+function chD(k,d) {
+  const lim={focus:[1,120],break:[1,30],long:[1,60],slots:[2,8]};
+  const ids={focus:'dF',break:'dB',long:'dL',slots:'dS'};
+  D[k]=Math.max(lim[k][0],Math.min(lim[k][1],D[k]+d));
+  document.getElementById(ids[k]).textContent=D[k];
+}
+function togOpt(k) {
+  O[k]=!O[k];
+  document.getElementById(k==='autoBreak'?'tgB':'tgF').classList.toggle('on',O[k]);
+}
+function togTheme() {
+  const lt=document.body.classList.toggle('lt');
+  document.getElementById('tgTh').classList.toggle('on',lt);
+}
+function pickC(el) {
+  COLORS.focus.a=el.dataset.c; COLORS.focus.g=el.dataset.g;
+  if (phase==='focus') {
+    document.getElementById('W').style.setProperty('--cur',el.dataset.c);
+    document.getElementById('W').style.setProperty('--curG',el.dataset.g);
+    document.getElementById('arc').style.stroke=el.dataset.c;
+    document.getElementById('tip').style.fill  =el.dataset.c;
+  }
+  document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s===el));
+}
+
+/* popout — opens same widget in a separate window */
+function doPopout() {
+  const sz = 420;
+  const win = window.open('', '_blank',
+    `width=${sz},height=${sz},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`);
+  if (win) { win.document.write('<!DOCTYPE html>'+document.documentElement.outerHTML); win.document.close(); }
+}
+
+/* keyboard */
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.code==='Space') { e.preventDefault(); doPlay(document.getElementById('pbtn')); }
+  if (e.key==='r'||e.key==='R') doReset(document.querySelector('.cb'));
+  if (e.key==='s'||e.key==='S') doSkip(document.querySelectorAll('.cb')[1]);
+  if (e.key==='c'||e.key==='C') openCfg();
+  if (e.key==='p'||e.key==='P') doPopout();
+  if (e.key==='Escape') closeCfg();
+});
+
+function addRipple(el) {
+  const r=document.createElement('span'); r.className='rip';
+  const s=Math.max(el.offsetWidth,el.offsetHeight);
+  r.style.cssText=`width:${s}px;height:${s}px;left:0;top:0`;
+  el.appendChild(r); r.addEventListener('animationend',()=>r.remove());
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+
+// init
+setPhase('focus', false);
+</script>
+</body>
+</html>
