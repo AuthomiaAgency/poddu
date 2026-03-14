@@ -8,10 +8,10 @@
 <style>
 
 :root {
-  --bg:      #0d0d0d;
-  --s1:      #161616;
-  --s2:      #1f1f1f;
-  --border:  rgba(255,255,255,0.08);
+  --bg:      #191919;
+  --s1:      #212121;
+  --s2:      #2a2a2a;
+  --border:  rgba(255,255,255,0.07);
   --text:    #f5f5f5;
   --muted:   rgba(245,245,245,0.35);
   --a:       #e8603a;
@@ -20,7 +20,17 @@
   --g-break: rgba(79,168,199,0.25);
   --a-long:  #4fad82;
   --g-long:  rgba(79,173,130,0.25);
-  --radius:  22px;
+  --radius:  18px;
+}
+
+/* light theme */
+body.light {
+  --bg:     #ffffff;
+  --s1:     #f1f1f0;
+  --s2:     #e8e8e6;
+  --border: rgba(0,0,0,0.09);
+  --text:   #1a1a1a;
+  --muted:  rgba(26,26,26,0.38);
 }
 
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
@@ -39,8 +49,8 @@ body {
   height: min(400px, 96vmin);
   background: var(--bg);
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  box-shadow: 0 24px 80px rgba(0,0,0,0.65);
+  border: none;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -48,14 +58,10 @@ body {
   padding: 20px 24px 24px;
   position: relative;
   overflow: hidden;
-  transition: box-shadow 0.7s ease;
+  transition: background 0.35s ease;
   user-select: none;
 }
-.w.alive {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--cur) 30%, transparent),
-    0 24px 80px rgba(0,0,0,0.65);
-}
+.w.alive { box-shadow: none; }
 
 /* ambient glow behind ring when running */
 .w::before {
@@ -357,7 +363,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0 0 22px; }
 /* ── DONE OVERLAY ────────────────────────────────── */
 .done {
   position: absolute; inset: 0; border-radius: var(--radius);
-  background: rgba(13,13,13,0.94);
+  background: var(--bg);
   z-index: 30;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 12px;
@@ -492,6 +498,16 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0 0 22px; }
       <div class="sr">
         <span class="sr-l">Iniciar trabajo automáticamente</span>
         <div class="tg" id="tgF" onclick="togOpt('autoFocus')"></div>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="sg">
+      <div class="sg-label">Apariencia</div>
+      <div class="sr">
+        <span class="sr-l">Tema claro</span>
+        <div class="tg" id="tgTheme" onclick="togTheme()"></div>
       </div>
     </div>
 
@@ -715,6 +731,12 @@ function chD(k, delta) {
   const ids  = { focus:'dFocus', break:'dBreak', long:'dLong', slots:'dSlots' };
   D[k] = Math.max(lim[k][0], Math.min(lim[k][1], D[k] + delta));
   document.getElementById(ids[k]).textContent = D[k];
+}
+function togTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('tgTheme').classList.toggle('on', isLight);
+  // keep settings panel bg in sync
+  document.getElementById('SP').style.background = 'var(--bg)';
 }
 function togOpt(k) {
   O[k] = !O[k];
