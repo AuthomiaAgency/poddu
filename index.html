@@ -35,19 +35,20 @@ body.lt {
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
-/* ── BODY fills iframe, transparent edges ── */
+/* ── BODY: full page = widget color, zero gap ── */
 html, body {
   width: 100%; height: 100%;
-  background: transparent;
+  background: var(--bg);
   display: flex; align-items: center; justify-content: center;
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  transition: background 0.35s;
 }
+body.lt { background: var(--bg); } /* inherits light bg */
 
 /* ── WIDGET ──────────────────────────────── */
 .w {
-  /* fills viewport, stays square */
   width:  100vmin;
   height: 100vmin;
   background: var(--bg);
@@ -58,6 +59,24 @@ html, body {
   position: relative;
   overflow: hidden;
   transition: background 0.35s;
+  /* no border, no radius — seamless with page */
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* When opened as a standalone popout window, show as card */
+body.popout {
+  background: #111;
+  align-items: center;
+  justify-content: center;
+}
+body.popout .w {
+  width:  min(100vmin, 100vw);
+  height: min(100vmin, 100vh);
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+  border: 1px solid rgba(255,255,255,0.07);
 }
 
 /* subtle ambient glow when running */
@@ -595,8 +614,10 @@ function togOpt(k) {
   document.getElementById(k==='autoBreak'?'tgB':'tgF').classList.toggle('on',O[k]);
 }
 function togTheme() {
-  const lt=document.body.classList.toggle('lt');
-  document.getElementById('tgTh').classList.toggle('on',lt);
+  const lt = document.body.classList.toggle('lt');
+  document.getElementById('tgTh').classList.toggle('on', lt);
+  document.getElementById('W').style.background = '';   // let CSS var drive it
+  document.getElementById('SP').style.background = '';
 }
 function pickC(el) {
   COLORS.focus.a=el.dataset.c; COLORS.focus.g=el.dataset.g;
@@ -609,12 +630,23 @@ function pickC(el) {
   document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s===el));
 }
 
-/* popout — opens same widget in a separate window */
+/* popout — blob URL so it works inside Notion's iframe */
 function doPopout() {
-  const sz = 420;
-  const win = window.open('', '_blank',
-    `width=${sz},height=${sz},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`);
-  if (win) { win.document.write('<!DOCTYPE html>'+document.documentElement.outerHTML); win.document.close(); }
+  // Inject popout flag into the HTML
+  const html = document.documentElement.outerHTML
+    .replace('<body>', '<body class="popout">');
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const sz   = 420;
+  const win  = window.open(url, '_blank',
+    `width=${sz},height=${sz},resizable=yes,scrollbars=no,`+
+    `toolbar=no,menubar=no,location=no,status=no`);
+  // fallback if popup blocked
+  if (!win) {
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank';
+    a.rel = 'noopener'; a.click();
+  }
 }
 
 /* keyboard */
