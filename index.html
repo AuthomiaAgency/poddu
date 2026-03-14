@@ -89,9 +89,9 @@ body.popout .w {
 .w.alive::before { opacity:1; }
 
 /* ── TOP ──────────────────────────────────── */
-.top {
+.top { 
   width:100%;
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex; align-items:center; justify-content:flex-start;
   padding: 3vmin 4vmin 0;
   z-index:2; flex-shrink:0;
 }
@@ -113,7 +113,15 @@ body.popout .w {
   border-color:var(--cur);
   background:var(--curG);
 }
-.top-ico { display:flex; gap:1.5vmin; }
+
+/* ── BOTTOM-LEFT UTILITY BUTTONS ─────────── */
+.corner {
+  position: absolute;
+  bottom: clamp(10px, 3vmin, 20px);
+  left:   clamp(10px, 3vmin, 20px);
+  display: flex; gap: 1.5vmin;
+  z-index: 10;
+}
 .ico {
   width: clamp(24px,6vmin,32px);
   height: clamp(24px,6vmin,32px);
@@ -125,6 +133,7 @@ body.popout .w {
   cursor:pointer;
   font-size: clamp(10px,2.5vmin,14px);
   transition:all 0.2s;
+  backdrop-filter: blur(6px);
 }
 .ico:hover { color:var(--txt); background:var(--s2); }
 .ico.on    { color:var(--cur); border-color:var(--cur); }
@@ -363,17 +372,19 @@ hr { border:none; border-top:1px solid var(--bd); margin:0 0 4vmin; }
 
 <div class="w" id="W">
 
-  <!-- TOP -->
+  <!-- TOP: only phase tabs -->
   <div class="top">
     <div class="phases">
       <button class="ph on" id="ph-focus" onclick="setPhase('focus')">Trabajo</button>
       <button class="ph"    id="ph-break" onclick="setPhase('break')">Pausa</button>
       <button class="ph"    id="ph-long"  onclick="setPhase('long')">Largo</button>
     </div>
-    <div class="top-ico">
-      <div class="ico" id="iP" title="Ventana flotante [P]" onclick="doPopout()">⤢</div>
-      <div class="ico" id="iC" title="Configuración [C]"   onclick="openCfg()">⚙</div>
-    </div>
+  </div>
+
+  <!-- BOTTOM-LEFT CORNER BUTTONS -->
+  <div class="corner">
+    <div class="ico" id="iP" title="Ventana flotante [P]" onclick="doPopout()">⤢</div>
+    <div class="ico" id="iC" title="Configuración [C]"   onclick="openCfg()">⚙</div>
   </div>
 
   <!-- RING -->
@@ -630,23 +641,28 @@ function pickC(el) {
   document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s===el));
 }
 
-/* popout — blob URL so it works inside Notion's iframe */
+/* ── POPOUT ──────────────────────────────────────────
+   Notion's iframe allows allow-popups but blocks blob URLs.
+   The only reliable method: open the widget's own hosted URL
+   (window.location.href) in a new window with ?popout=1 flag.
+   When running locally (file://) it falls back to a new tab.
+─────────────────────────────────────────────────────── */
 function doPopout() {
-  // Inject popout flag into the HTML
-  const html = document.documentElement.outerHTML
-    .replace('<body>', '<body class="popout">');
-  const blob = new Blob([html], { type: 'text/html' });
-  const url  = URL.createObjectURL(blob);
-  const sz   = 420;
-  const win  = window.open(url, '_blank',
-    `width=${sz},height=${sz},resizable=yes,scrollbars=no,`+
-    `toolbar=no,menubar=no,location=no,status=no`);
-  // fallback if popup blocked
+  const base = window.location.href.split('?')[0];
+  const url  = base + '?popout=1';
+  const sz   = 430;
+  const opts = `width=${sz},height=${sz},resizable=yes,scrollbars=no,`+
+               `toolbar=no,menubar=no,location=no,status=no`;
+  const win  = window.open(url, 'pomodoro_popout', opts);
   if (!win) {
-    const a = document.createElement('a');
-    a.href = url; a.target = '_blank';
-    a.rel = 'noopener'; a.click();
+    // Browser blocked popup — open as new tab (user sees URL, can make it a window)
+    window.open(url, '_blank');
   }
+}
+
+// Detect popout mode from URL param
+if (new URLSearchParams(window.location.search).get('popout') === '1') {
+  document.body.classList.add('popout');
 }
 
 /* keyboard */
