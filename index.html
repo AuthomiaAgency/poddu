@@ -18,17 +18,63 @@ body.lt {
   --bd:  rgba(0,0,0,0.08);
   --txt: #181818; --mut: rgba(18,18,18,0.38);
 }
-/* popout card look */
+/* ─── POPOUT MINI FLOAT ──────────────────────────── */
 body.po {
-  background: #0e0e0e !important;
-  align-items: center; justify-content: center;
+  background: transparent !important;
+  align-items: center;
+  justify-content: center;
 }
 body.po .w {
-  border-radius: 20px !important;
-  box-shadow: 0 32px 90px rgba(0,0,0,0.85) !important;
-  border: 1px solid rgba(255,255,255,0.07) !important;
-  width:  min(96vmin,96vw)  !important;
-  height: min(96vmin,96vh) !important;
+  width:  100vw !important;
+  height: 100vh !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow:
+    0 0 0 1px rgba(232,96,58,0.15),
+    0 20px 60px rgba(0,0,0,0.95),
+    inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  background: #141414 !important;
+  --bg: #141414;
+}
+
+/* mini: hide phase tabs and settings corner, shrink ring */
+body.po .top      { display: none !important; }
+body.po .corner   { bottom: 6px !important; left: 6px !important; gap: 4px !important; }
+body.po .ico      { width: 18px !important; height: 18px !important; font-size: 8px !important; border-radius: 5px !important; }
+body.po .ico a    { font-size: 8px !important; }
+body.po .ctrls    { gap: 6px !important; padding-bottom: 10px !important; }
+body.po .cb       { width: 28px !important; height: 28px !important; font-size: 11px !important; border-radius: 8px !important; }
+body.po .pb       { width: 38px !important; height: 38px !important; font-size: 14px !important; border-radius: 11px !important; }
+body.po .sdot     { width: 4px !important; height: 4px !important; }
+body.po .time     { font-size: clamp(28px, 14vmin, 42px) !important; letter-spacing: 2px !important; }
+body.po .sp       { border-radius: 18px !important; }
+
+/* drag handle — grab the top area to move window */
+body.po .drag-hint {
+  display: flex !important;
+}
+
+/* phase label replaces tabs in mini mode */
+body.po .mini-label {
+  display: block !important;
+}
+
+/* close button visible in mini */
+body.po .mini-close {
+  display: flex !important;
+}
+
+/* phase dot indicator in top-right corner */
+body.po .mini-phase {
+  display: flex !important;
+}
+
+/* ─── MINI-ONLY ELEMENTS ─────────────────────────── */
+.drag-hint,
+.mini-label,
+.mini-close,
+.mini-phase {
+  display: none;
 }
 
 *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
@@ -160,7 +206,29 @@ html, body {
 }
 @keyframes rip { to{transform:scale(6);opacity:0} }
 
-/* ─── CORNER BUTTONS (bottom-left) ─────────────── */
+/* ─── POWERED BY ────────────────────────────────── */
+.powered {
+  position: absolute;
+  bottom: clamp(7px, 2.2vmin, 14px);
+  right:  clamp(9px, 2.8vmin, 16px);
+  z-index: 5;
+  font-size: clamp(7.5px, 1.8vmin, 9.5px);
+  color: var(--mut);
+  letter-spacing: 0.2px;
+  line-height: 1;
+  pointer-events: auto;
+  transition: opacity .2s;
+}
+.powered:hover { opacity: 0.85; }
+.powered a {
+  color: var(--cur);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity .2s;
+}
+.powered a:hover { opacity: 0.8; text-decoration: underline; }
+/* hide in mini popout — no space */
+body.po .powered { display: none; }
 .corner {
   position:absolute;
   bottom:clamp(8px,2.8vmin,18px);
@@ -301,6 +369,26 @@ hr { border:none; border-top:1px solid var(--bd); margin:0 0 clamp(10px,3vmin,20
     </div>
   </div>
 
+  <!-- MINI HEADER (only in popout) -->
+  <div class="mini-phase" id="miniPhase"
+       style="position:absolute;top:8px;left:10px;z-index:6;
+              font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
+              letter-spacing:1.5px;text-transform:uppercase;color:var(--mut)">
+    TRABAJO
+  </div>
+  <div class="mini-close"
+       onclick="window.close()"
+       style="position:absolute;top:6px;right:6px;z-index:6;
+              width:16px;height:16px;border-radius:50%;
+              background:rgba(255,80,80,0.7);
+              display:flex;align-items:center;justify-content:center;
+              cursor:pointer;font-size:8px;color:#fff;
+              border:1px solid rgba(255,255,255,0.1);
+              transition:background .2s"
+       onmouseover="this.style.background='rgba(255,60,60,0.9)'"
+       onmouseout="this.style.background='rgba(255,80,80,0.7)'"
+       title="Cerrar">×</div>
+
   <!-- RING + TIME -->
   <div class="ring-area">
     <svg class="rsvg" viewBox="0 0 440 440">
@@ -323,11 +411,15 @@ hr { border:none; border-top:1px solid var(--bd); margin:0 0 clamp(10px,3vmin,20
 
   <!-- BOTTOM-LEFT CORNER BUTTONS -->
   <div class="corner">
-    <!-- Popout: simple <a> with target=_blank — works even inside sandboxed iframes -->
-    <div class="ico" id="icoP" title="Abrir en ventana [P]">
+    <div class="ico" id="icoP" title="Abrir en ventana flotante [P]">
       <a id="popLink" href="#" target="_blank" rel="noopener" onclick="return handlePopout(event)">⤢</a>
     </div>
     <div class="ico" id="icoC" title="Configuración [C]" onclick="openCfg()">⚙</div>
+  </div>
+
+  <!-- POWERED BY — bottom right, hidden in mini popout -->
+  <div class="powered">
+    powered by <a href="https://authomia.cloud" target="_blank" rel="noopener">Authomia</a>
   </div>
 
   <!-- SETTINGS PANEL -->
@@ -436,31 +528,67 @@ const META = {
 let phase='focus', timeLeft, total, running=false, ticker=null, sessions=0;
 
 // ── POPOUT ───────────────────────────────────────
-// Strategy: use a real <a target="_blank"> so it works
-// even inside sandboxed iframes (Notion).
-// The link points to this same page + ?po=1
-// On load we detect ?po=1 and apply card styling.
+// Opens a 260×260 mini widget pinned to the bottom-right
+// corner. resizable=no keeps it compact. If the window is
+// already open, just focuses it instead of opening a new one.
+// ?po=1 triggers the mini floating skin.
+
+let _popWin = null;
+
 function handlePopout(e) {
   e.preventDefault();
+  e.stopPropagation();
+
+  // Re-focus if already open
+  if (_popWin && !_popWin.closed) {
+    try { _popWin.focus(); } catch(err) {}
+    return false;
+  }
+
+  const sz   = 260;
+  const gap  = 20;
+  const sw   = screen.availWidth  || screen.width;
+  const sh   = screen.availHeight || screen.height;
+  const left = Math.max(0, sw - sz - gap);
+  const top  = Math.max(0, sh - sz - gap);
+
   const base = window.location.href.split('?')[0];
   const url  = base + '?po=1';
-  // Try named window — avoids opening multiple tabs on re-click
-  const win  = window.open(url, 'pomo_float',
-    'width=430,height=430,resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no');
-  if (!win) {
-    // Popup blocked: navigate the link normally as new tab
+  const feat = [
+    `width=${sz}`, `height=${sz}`,
+    `left=${left}`, `top=${top}`,
+    'resizable=no', 'scrollbars=no',
+    'toolbar=no', 'menubar=no',
+    'location=no', 'status=no'
+  ].join(',');
+
+  _popWin = window.open(url, 'pomo_float', feat);
+
+  if (!_popWin || _popWin.closed) {
+    // Popup blocked — fallback to new tab
     window.open(url, '_blank');
   }
   return false;
 }
 
-// Detect popout mode
-(function(){
-  const p = new URLSearchParams(window.location.search);
-  if (p.get('po') === '1') {
-    document.body.classList.add('po');
-    document.title = '⏱ Focus Timer';
-  }
+// ── DETECT POPOUT MODE ────────────────────────────
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('po') !== '1') return;
+
+  document.body.classList.add('po');
+  document.title = '⏱';
+
+  // Snap to corner once page has loaded
+  window.addEventListener('load', () => {
+    try {
+      const sz = 260, gap = 20;
+      const sw = screen.availWidth  || screen.width;
+      const sh = screen.availHeight || screen.height;
+      window.moveTo(sw - sz - gap, sh - sz - gap);
+      window.resizeTo(sz, sz);
+    } catch (err) {}
+  });
 })();
 
 // ── PHASE ────────────────────────────────────────
@@ -476,6 +604,9 @@ function setPhase(p, auto=false) {
   document.getElementById('tip').style.fill   = col.a;
   ['focus','break','long'].forEach(k =>
     document.getElementById('ph-'+k).classList.toggle('on', k===p));
+  // Update mini label
+  const lbl = document.getElementById('miniPhase');
+  if (lbl) lbl.textContent = { focus:'TRABAJO', break:'PAUSA', long:'LARGO' }[p];
   document.getElementById('pbtn').textContent = '▶';
   refreshDisp(); refreshRing(); buildDots();
   if (auto) {
