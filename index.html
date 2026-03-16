@@ -343,6 +343,10 @@ hr { border:none; border-top:1px solid var(--bd); margin:0 0 clamp(10px,3vmin,20
         <span class="sr-l">Tema claro</span>
         <div class="tg" id="tgTh" onclick="togTheme()"></div>
       </div>
+      <div class="sr">
+        <span class="sr-l">Sonido al terminar</span>
+        <div class="tg on" id="tgSnd" onclick="togSound()"></div>
+      </div>
     </div>
     <hr>
 
@@ -434,6 +438,70 @@ const META = {
 };
 
 let phase='focus', timeLeft, total, running=false, ticker=null, sessions=0;
+let soundOn = true;
+
+// ── SOUNDS ───────────────────────────────────────
+let _actx = null;
+function ctx() {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  return _actx;
+}
+
+function playSound(type) {
+  if (!soundOn) return;
+  try {
+    const c = ctx();
+    const now = c.currentTime;
+
+    if (type === 'focus') {
+      // Sesión completa — 3 notas ascendentes cálidas (Do Mi Sol)
+      [523, 659, 784].forEach((freq, i) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.connect(g); g.connect(c.destination);
+        o.type = 'sine'; o.frequency.value = freq;
+        const t = now + i * 0.22;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.22, t + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+        o.start(t); o.stop(t + 0.7);
+      });
+    }
+    else if (type === 'break') {
+      // Pausa corta terminada — 2 pulsos cortos y neutros
+      [440, 554].forEach((freq, i) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.connect(g); g.connect(c.destination);
+        o.type = 'triangle'; o.frequency.value = freq;
+        const t = now + i * 0.28;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.18, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+        o.start(t); o.stop(t + 0.5);
+      });
+    }
+    else if (type === 'long') {
+      // Pausa larga terminada — acorde suave envolvente (Do Mi Sol Do)
+      [261, 329, 392, 523].forEach((freq, i) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.connect(g); g.connect(c.destination);
+        o.type = 'sine'; o.frequency.value = freq;
+        const t = now + i * 0.08;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.14, t + 0.06);
+        g.gain.setValueAtTime(0.14, t + 0.5);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+        o.start(t); o.stop(t + 1.5);
+      });
+    }
+  } catch(e) {}
+}
+
+function togSound() {
+  soundOn = !soundOn;
+  document.getElementById('tgSnd').classList.toggle('on', soundOn);
+  // Preview sound when enabling
+  if (soundOn) playSound('focus');
+}
 
 // ── PHASE ────────────────────────────────────────
 function setPhase(p, auto=false) {
@@ -471,7 +539,7 @@ function stopTimer() {
 }
 function doReset(btn) { ripple(btn); stopTimer(); timeLeft=total=D[phase]*60; refreshDisp(); refreshRing(); }
 function doSkip(btn)  { ripple(btn); stopTimer(); advance(true); }
-function phaseDone()  { stopTimer(); showDone(); }
+function phaseDone()  { stopTimer(); playSound(phase); showDone(); }
 function advance(skip=false) {
   if (phase==='focus') { sessions++; buildDots(); setPhase(sessions%D.slots===0?'long':'break',!skip); }
   else { setPhase('focus',!skip); }
