@@ -147,6 +147,22 @@ html, body {
 }
 @keyframes rip { to{transform:scale(6);opacity:0} }
 
+/* ─── PiP MODE ───────────────────────────────────── */
+/* When widget is inside the PiP window, hide non-essential elements */
+@media all and (display-mode: picture-in-picture) {
+  body { background: #191919; margin:0; overflow:hidden; }
+  .powered { display:none; }
+  /* corner moves to hide PiP button since we're already floating */
+  #icoPip { display:none; }
+}
+
+/* PiP button active state */
+.ico.pip-active {
+  color: var(--cur) !important;
+  border-color: var(--cur) !important;
+  background: var(--curG) !important;
+}
+
 .powered {
   position: absolute;
   bottom: clamp(7px, 2.2vmin, 14px);
@@ -289,6 +305,7 @@ hr { border:none; border-top:1px solid var(--bd); margin:0 0 clamp(10px,3vmin,20
 </head>
 <body>
 
+<div id="W-host">
 <div class="w" id="W">
 
   <!-- PHASE TABS -->
@@ -320,9 +337,10 @@ hr { border:none; border-top:1px solid var(--bd); margin:0 0 clamp(10px,3vmin,20
     <div class="cb" id="btnS" onclick="doSkip(this)"  title="Saltar [S]"    style="font-size:clamp(10px,3vmin,15px)">⏭</div>
   </div>
 
-  <!-- CORNER BUTTON -->
+  <!-- CORNER BUTTONS -->
   <div class="corner">
-    <div class="ico" id="icoC" title="Configuración [C]" onclick="openCfg()">⚙</div>
+    <div class="ico" id="icoPip" title="Flotante [F]" onclick="togglePip(this)">⧉</div>
+    <div class="ico" id="icoC"   title="Configuración [C]" onclick="openCfg()">⚙</div>
   </div>
 
   <!-- POWERED BY — bottom right, hidden in mini popout -->
@@ -419,6 +437,7 @@ hr { border:none; border-top:1px solid var(--bd); margin:0 0 clamp(10px,3vmin,20
   </div>
 
 </div><!-- /w -->
+</div><!-- /W-host -->
 
 <script>
 // ── STATE ─────────────────────────────────────────
@@ -525,21 +544,48 @@ function setPhase(p, auto=false) {
 }
 
 // ── TIMER ────────────────────────────────────────
+let _startedAt  = null;   // Date.now() when timer started
+let _savedLeft  = 0;      // timeLeft at the moment of last start
+
 function doPlay(btn) { ripple(btn); running ? stopTimer() : startTimer(); }
+
 function startTimer() {
-  running = true;
+  requestNotifPerm();   // ask permission on first interaction
+  running      = true;
+  _startedAt   = Date.now();
+  _savedLeft   = timeLeft;
   document.getElementById('pbtn').textContent = '⏸';
   document.getElementById('W').classList.add('alive');
-  ticker = setInterval(()=>{ timeLeft--; refreshDisp(true); refreshRing(); if(timeLeft<=0) phaseDone(); }, 1000);
+  ticker = setInterval(timerTick, 250);
 }
+
+function timerTick() {
+  const elapsed = Math.floor((Date.now() - _startedAt) / 1000);
+  timeLeft = Math.max(0, _savedLeft - elapsed);
+  refreshDisp(true);
+  refreshRing();
+  if (timeLeft <= 0) phaseDone();
+}
+
 function stopTimer() {
   running = false; clearInterval(ticker);
   document.getElementById('pbtn').textContent = '▶';
   document.getElementById('W').classList.remove('alive');
 }
+
 function doReset(btn) { ripple(btn); stopTimer(); timeLeft=total=D[phase]*60; refreshDisp(); refreshRing(); }
 function doSkip(btn)  { ripple(btn); stopTimer(); advance(true); }
-function phaseDone()  { stopTimer(); playSound(phase); showDone(); }
+function phaseDone() {
+  stopTimer();
+  playSound(phase);
+  const msgs = {
+    focus: ['🍅 Sesión completa', 'Tiempo de tomar un descanso.'],
+    break: ['☕ Pausa terminada', 'De vuelta al trabajo.'],
+    long:  ['🌿 Descanso completado', '¡Recargado y listo!'],
+  };
+  sendNotif(...msgs[phase]);
+  showDone();
+}
 function advance(skip=false) {
   if (phase==='focus') { sessions++; buildDots(); setPhase(sessions%D.slots===0?'long':'break',!skip); }
   else { setPhase('focus',!skip); }
@@ -630,6 +676,7 @@ document.addEventListener('keydown', e => {
   if (e.key==='r'||e.key==='R') doReset(document.getElementById('btnR'));
   if (e.key==='s'||e.key==='S') doSkip(document.getElementById('btnS'));
   if (e.key==='c'||e.key==='C') { document.getElementById('SP').classList.contains('open') ? closeCfg() : openCfg(); }
+  if (e.key==='f'||e.key==='F') togglePip(document.getElementById('icoPip'));
   if (e.key==='Escape') closeCfg();
 });
 
@@ -641,6 +688,157 @@ function ripple(el) {
   el.appendChild(r); r.addEventListener('animationend',()=>r.remove());
 }
 function pad(n) { return String(n).padStart(2,'0'); }
+
+// ── BACKGROUND SYNC (Page Visibility API) ────────
+// When you return to the tab after being away,
+// re-sync the display instantly instead of waiting
+// for the next 250ms tick.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && running) timerTick();
+});
+
+// ── WEB NOTIFICATIONS (fires even in background) ──
+function requestNotifPerm() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendNotif(title, body) {
+  if (!soundOn) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, {
+      body,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏱</text></svg>',
+      silent: true   // sound already handled by Web Audio
+    });
+  }
+}
+
+// ── DOCUMENT PICTURE-IN-PICTURE ──────────────────
+// Uses the Document PiP API (Chrome 116+) to open
+// a native floating window that stays on top of
+// all other windows — no browser tricks needed.
+
+let _pipWin = null;
+
+function pipSupported() {
+  return 'documentPictureInPicture' in window;
+}
+
+async function togglePip(btn) {
+  if (!pipSupported()) {
+    alert('Tu navegador no soporta Picture-in-Picture de documentos.\nUsa Chrome 116 o superior.');
+    return;
+  }
+
+  // If already in PiP, close it
+  if (_pipWin && !_pipWin.closed) {
+    _pipWin.close();
+    return;
+  }
+
+  try {
+    const widget = document.getElementById('W');
+    const sz     = 280;   // compact but readable
+
+    // Open the PiP window — Chrome places it top-right automatically
+    _pipWin = await documentPictureInPicture.requestWindow({
+      width:  sz,
+      height: sz,
+      disallowReturnToOpener: false,
+      preferInitialWindowPlacement: true,
+    });
+
+    // ── Copy all stylesheets into PiP window ──
+    [...document.styleSheets].forEach(sheet => {
+      try {
+        const css   = [...sheet.cssRules].map(r => r.cssText).join('');
+        const style = _pipWin.document.createElement('style');
+        style.textContent = css;
+        _pipWin.document.head.appendChild(style);
+      } catch {
+        const link  = _pipWin.document.createElement('link');
+        link.rel    = 'stylesheet';
+        link.type   = sheet.type;
+        link.media  = sheet.media;
+        link.href   = sheet.href;
+        _pipWin.document.head.appendChild(link);
+      }
+    });
+
+    // ── Copy Google Fonts link ──
+    const fontLink  = document.querySelector('link[href*="fonts.googleapis"]');
+    if (fontLink) {
+      const fl = _pipWin.document.createElement('link');
+      fl.rel  = 'stylesheet';
+      fl.href = fontLink.href;
+      _pipWin.document.head.prepend(fl);
+    }
+
+    // ── Copy current CSS variable overrides (color picks, theme) ──
+    const dynStyle = _pipWin.document.createElement('style');
+    dynStyle.id    = 'dynVars';
+    const rootStyle = getComputedStyle(document.documentElement);
+    // Grab all our custom properties
+    const vars = ['--bg','--s1','--s2','--bd','--txt','--mut','--cur','--curG'];
+    dynStyle.textContent = ':root {' +
+      vars.map(v => `${v}:${rootStyle.getPropertyValue(v)};`).join('') +
+    '}';
+    _pipWin.document.head.appendChild(dynStyle);
+
+    // ── Copy body class (light theme) ──
+    if (document.body.classList.contains('lt')) {
+      _pipWin.document.body.classList.add('lt');
+    }
+
+    // ── Move the widget into PiP ──
+    _pipWin.document.body.appendChild(widget);
+    _pipWin.document.body.style.cssText =
+      'margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg)';
+
+    // Mark button as active
+    document.getElementById('icoPip').classList.add('pip-active');
+
+    // ── Keep CSS vars in sync when user changes color/theme ──
+    const syncVars = () => {
+      const s = getComputedStyle(document.documentElement);
+      const style = _pipWin.document.getElementById('dynVars');
+      if (style) style.textContent = ':root {' +
+        vars.map(v => `${v}:${s.getPropertyValue(v)};`).join('') +
+      '}';
+      if (document.body.classList.contains('lt'))
+        _pipWin.document.body.classList.add('lt');
+      else
+        _pipWin.document.body.classList.remove('lt');
+    };
+    // Observe changes on the main doc's root
+    const obs = new MutationObserver(syncVars);
+    obs.observe(document.documentElement, { attributes:true, attributeFilter:['style'] });
+    obs.observe(document.body,            { attributes:true, attributeFilter:['class'] });
+
+    // ── When PiP closes — restore widget ──
+    _pipWin.addEventListener('pagehide', () => {
+      obs.disconnect();
+      document.getElementById('W-host').appendChild(widget);
+      document.getElementById('icoPip').classList.remove('pip-active');
+      _pipWin = null;
+    });
+
+  } catch (err) {
+    console.warn('PiP error:', err);
+    document.getElementById('icoPip').classList.remove('pip-active');
+    _pipWin = null;
+  }
+}
+
+// Show/hide PiP button based on support
+document.addEventListener('DOMContentLoaded', () => {
+  if (!pipSupported()) {
+    const btn = document.getElementById('icoPip');
+    if (btn) btn.style.display = 'none';
+  }
+});
 
 // ── INIT ──────────────────────────────────────────
 setPhase('focus', false);
